@@ -1,0 +1,51 @@
+<script type="text/javascript">
+    RED.nodes.registerType('Change relay',{
+        category: 'function',
+        color: '#7e93cf',
+        defaults: {
+            toxotesRelayFriendlyName: {value:""},
+            retain:{value:false},
+            overrideAsManual:{value:false},
+            broker: {type:"mqtt-broker", required:true},
+            mydb: {type:"MySQLdatabase",required:true},
+        },
+        inputs:1,
+        outputs:0,
+        icon: "toxotes-relay-state.png",
+        label: function() {
+            if (this.toxotesRelayFriendlyName !== "") {
+                return "Set " + this.toxotesRelayFriendlyName
+            } else {
+                return "Set state";
+            }
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="Change relay">
+    <div class="form-row">
+        <label for="node-input-toxotesRelayFriendlyName">Thing name</label>
+        <input type="text" id="node-input-toxotesRelayFriendlyName"><br>
+        All things with this name will be changed.
+    </div>
+    <div class="form-row">
+        <label for="node-input-retain">Retain this state command</label><input type="checkbox" id="node-input-retain"><br>
+        This state will be on startup when the hardware reboots
+    </div>
+    <div class="form-row">
+        <label for="node-input-overrideAsManual">Send as manual command</label><input type="checkbox" id="node-input-overrideAsManual"><br>
+        Overrides all other commands.  Use only with buttons or other manual input.
+    </div>
+    <div class="form-row">
+        <label for="node-input-broker"><i class="fa fa-globe"></i>MQTT</label>
+        <input type="text" id="node-input-broker">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mydb"><i class="fa fa-database"></i> Database</label>
+        <input type="text" id="node-input-mydb">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="Change Relay">
+    <p>toxotes relay</p>
+</script>
