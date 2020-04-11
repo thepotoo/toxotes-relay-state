@@ -10,8 +10,8 @@ msg.friendly_name = "My relay";
 
 Setting a friendly name in the node config will override the friendly name in the message.
 
-A unique_id can be sent via message, typically the 6 digit ESP chip id:
-msg.unique_id = "ABCDEF";
+A unique_id can be sent via message, typically this is relay_ followed by the 6 digit ESP chip id:
+msg.unique_id = "relay_ABCDEF";
 
 // Optional parameters:
 msg.retain = false;
@@ -49,7 +49,7 @@ module.exports = function(RED) {
                         if (msg.payload === false || msg.payload === "0" || msg.payload === "false") {
                             msg.payload = 0;
                         }
-                        if (msg.payload !== 0 && msg.payload !== 1 && msg.payload !== "on" && msg.payload !== "off") {
+                        if (msg.payload !== 0 && msg.payload !== 1 && msg.payload.toLowerCase() !== "on" && msg.payload.toLowerCase() !== "off") {
                             error = "Invalid payload, use 1, 0, on, off";
                         }
                     }
@@ -116,9 +116,13 @@ function findThingsInDB(msg, node, done) {
             node.error(err,msg);
         } else {
             if (rows === undefined || rows.length === 0) {
-                var err = `Thing ${msg.friendly_name} not found`;
-                node.status({fill:"red",shape:"ring",text: err});
-                node.warn(err);
+                if (msg.hasOwnProperty('unique_id')) {
+                    error = `Unique ID ${msg.unique_id} not found`
+                } else {
+                    error = `Thing ${msg.friendly_name} not found`;
+                }
+                node.status({fill:"red",shape:"ring",text: error});
+                node.warn(error);
             } else {
                 result = rows;
                 setState(msg, node, result, done);
@@ -140,8 +144,10 @@ function updateSQL(msg, node, done) {
 function setState(msg, node, result, done) {
     var totalThings = result.length;
     var sql = "";
+    var lastFriendlyName = ""; // To display as the status, if setting state via unique_id
     for (var i=0; i < totalThings; i++) {
         msg.topic = "cmnd/" + result[i].host_id + "/POWER";  // Fixme - this should not be hard coded
+        lastFriendlyName = result[i].friendly_name;
         if (msg.manual) {
             // Sending this as a manual command
             var now = new Date().getTime();
@@ -181,9 +187,13 @@ function setState(msg, node, result, done) {
     }
     // Set the node status
     var state = msg.payload;
-    if (state === 1 || state == "on") {
+    // If friendly name was not set in the node, display the actual device that was last changed as the status
+    if (node.friendlyName === "") {  //(msg.hasOwnProperty('unique_id') || (
+        state = `${msg.payload} (${lastFriendlyName})`;
+    }
+    if (msg.payload === "1" || msg.payload.toLowerCase() == "on") {
         node.status({fill:"green",shape:"dot",text: state});
-    } else if (state === 0 || state == "off") {
+    } else if (msg.payload === "0" || msg.payload.toLowerCase() == "off") {
         node.status({fill:"red",shape:"dot",text: state});
     } else {
         node.status({text: state});
