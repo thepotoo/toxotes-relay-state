@@ -100,9 +100,11 @@ function findThingsInDB(msg, node, done) {
     friendly_name,
     unique_id,
     host_id,
+    command_topic,
     under_manual_control,
     manual_control_for,
     current_value,
+    show_automatic_control,
     automatic_command
     FROM things `;
     if (msg.hasOwnProperty('unique_id')) {
@@ -142,11 +144,14 @@ function updateSQL(msg, node, done) {
 }
 
 function setState(msg, node, result, done) {
-    var totalThings = result.length;
     var sql = "";
+    var sqlUpdateNeeded = true;
     var lastFriendlyName = ""; // To display as the status, if setting state via unique_id
-    for (var i=0; i < totalThings; i++) {
-        msg.topic = "cmnd/" + result[i].host_id + "/POWER";  // Fixme - this should not be hard coded
+    for (var i=0; i < result.length; i++) {
+        msg.topic = result[i].command_topic;  // Default to custom command topic if set
+        if (!msg.topic) {
+            msg.topic = "cmnd/" + result[i].host_id + "/POWER";  // Fallback to default Tasmota topic if not set
+        }
         lastFriendlyName = result[i].friendly_name;
         if (msg.manual) {
             // Sending this as a manual command
@@ -154,17 +159,28 @@ function setState(msg, node, result, done) {
             var manualControlEnds = now + result[i].manual_control_for * 60 * 1000;  // Minutes to ms
             // When manual control ends, revert to the current state
             if (result[i].automatic_command === null) {
-                result[i].automatic_command = result[i].current_value;
+                // Automatic commands are sent to this thing
+                if (result[i].show_automatic_control) {
+                    // When finished, we should return it to its current state
+                    result[i].automatic_command = result[i].current_value;
+                } else {
+                    // There's no need to update the SQL for this thing
+                    sqlUpdateNeeded = false;
+                }
             }
             // Update automatic command even though this is a manual command
             // Necessary in case there is no automatic control at all for this thing
-            sql += `UPDATE
-                    things
-                    SET
-                    under_manual_control = '${manualControlEnds}',
-                    automatic_command = '${result[i].automatic_command}'
-                    WHERE unique_id = '${result[i].unique_id}'
-                    ;`;
+            if (sqlUpdateNeeded) {
+                sql += `UPDATE
+                        things
+                        SET
+                        under_manual_control = '${manualControlEnds}',
+                        automatic_command = '${result[i].automatic_command}'
+                        WHERE unique_id = '${result[i].unique_id}'
+                        ;`;
+            } else {
+                sql += '';
+            }
             node.brokerConn.publish(msg, done);  // send the message
         } else {
             // All automatic commands should update the automatic command field
