@@ -135,12 +135,16 @@ function findThingsInDB(msg, node, done) {
 
 function updateSQL(msg, node, done) {
     var result = [];
-    node.mydbConfig.connection.query(msg.topic, result, (err, rows) => {
-        if (err) {
-            node.error(err,msg);
-        }
+    if (msg.topic) {
+        node.mydbConfig.connection.query(msg.topic, result, (err, rows) => {
+            if (err) {
+                node.error(err,msg);
+            }
+            done();
+        });
+    } else {
         done();
-    });
+    }
 }
 
 function setState(msg, node, result, done) {
